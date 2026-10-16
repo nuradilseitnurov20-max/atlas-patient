@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Пациент Б., 58 · Атлас пациента</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+/* «Негатоскоп»: тёмная смотровая. Слева карта пациента, в центре он в 3D, справа разбор находки, снизу цепочка. Одна тёмная тема, намеренно. */
+:root{
+  --bg:#0A1117; --panel:#111B23; --panel-2:#17242E; --line:#223340; --ink:#E6EEF3; --muted:#8BA0AE;
+  --cvs:#FF5A66; --resp:#5FA8F0; --gen:#4DB08B; --warn:#E8A84A;
+  --f-display:"Unbounded","Onest",system-ui,sans-serif; --f-body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--cvs);outline-offset:2px;border-radius:6px}
+h1,h2,h3{margin:0;text-wrap:balance} p{margin:0}
+[hidden]{display:none!important}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.top h1{font-family:var(--f-display);font-weight:500;font-size:clamp(22px,3vw,32px);letter-spacing:-.01em}
+.top .sub{color:var(--muted);margin-top:4px;max-width:80ch}
+.badge{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:4px 10px}
+.dx-line{display:flex;gap:8px;flex-wrap:wrap}
+.tag{font-size:12.5px;padding:4px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line)}
+.tag.hot{border-color:var(--cvs);color:var(--cvs)}
+.tag.miss{border-color:var(--warn);color:var(--warn)}
+.vitals{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.vitals b{color:var(--ink);font-size:16px;margin-left:4px}
+
+.app{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr) minmax(0,370px);gap:16px;align-items:stretch}
+@media (max-width:1120px){.app{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.viewer{grid-column:1/-1;order:-1}}
+@media (max-width:720px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.lab{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.tabs{display:flex;gap:3px;background:var(--panel-2);border-radius:10px;padding:3px;flex-wrap:wrap}
+.tabs button{flex:1;border:0;background:none;padding:7px 4px;border-radius:8px;font-size:12.5px;color:var(--muted);font-weight:500;min-width:60px}
+.tabs button.on{background:var(--bg);color:var(--ink)}
+.tabbody{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:600px;padding-right:2px}
+.item{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;font-size:14px;text-align:left;width:100%}
+.item b{display:block;font-weight:600;margin-bottom:2px}
+.item small{color:var(--muted);font-size:12.5px;display:block}
+.item .txt{font-size:13.5px;color:var(--ink)}
+.item.link{display:flex;gap:10px;align-items:flex-start}
+.item.link:hover,.item.link.on{border-color:var(--cvs)}
+.num{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--f-mono);background:var(--cvs);color:#0A1117;margin-top:1px}
+.num.gen{background:var(--warn)}
+.num.free{background:var(--muted)}
+.labs{display:grid;grid-template-columns:minmax(0,1.4fr) auto auto;gap:0;font-size:13px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.labs div{padding:6px 9px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.labs .h{border-top:0;background:var(--panel-2);font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.labs .hi{color:var(--cvs);font-weight:600} .labs .lo{color:var(--resp);font-weight:600}
+
+.viewer{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);min-height:660px;
+  background:radial-gradient(ellipse at 50% 35%,#1A2A36 0%,#0E171E 55%,#0A1117 100%)}
+@media (max-width:1120px){.viewer{min-height:min(80vh,640px)}}
+.viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pin{position:absolute;width:26px;height:26px;transform:translate(-50%,-50%);pointer-events:auto;border:0;padding:0;background:none;transition:opacity .25s}
+.pin i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--f-mono);font-style:normal;background:var(--cvs);color:#0A1117;box-shadow:0 0 0 4px rgba(255,90,102,.22),0 0 18px rgba(255,90,102,.6);position:relative}
+.pin i::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--cvs);animation:ping 2.2s ease-out infinite}
+.pin.gen i{background:var(--warn);box-shadow:0 0 0 4px rgba(232,168,74,.22)}
+.pin.gen i::after{border-color:var(--warn)}
+.pin span{position:absolute;left:34px;top:50%;margin-top:-13px;font-size:12px;font-weight:600;background:rgba(10,17,23,.86);border:1px solid var(--line);padding:3px 8px;border-radius:8px;white-space:nowrap;opacity:0;transform:translateX(-4px);transition:all .2s;pointer-events:none}
+.pin:hover span,.pin.on span{opacity:1;transform:none}
+.pin.on i{background:#fff}
+.pin.hide{opacity:.1;pointer-events:none}
+@keyframes ping{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+.vtools{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;pointer-events:none}
+.vtools>div{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
+.vbtn{border:1px solid var(--line);background:rgba(17,27,35,.88);backdrop-filter:blur(6px);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:500}
+.vbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.vhint{position:absolute;top:12px;left:14px;font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.vhr{position:absolute;top:10px;right:14px;font:600 22px var(--f-mono);color:var(--cvs);display:flex;gap:6px;align-items:center;text-shadow:0 0 12px rgba(255,90,102,.5)}
+.vhr small{font-size:10px;color:var(--muted);text-shadow:none}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.d-stage{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cvs)}
+.d-title{font-family:var(--f-display);font-weight:500;font-size:20px;line-height:1.3}
+.sec{border-top:1px solid var(--line);padding-top:10px}
+.sec h4{margin:0 0 4px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.sec p{font-size:14.5px}
+.norm{font-size:13.5px;color:var(--gen)}
+.warnbox{font-size:13px;color:var(--warn);border:1px dashed var(--warn);border-radius:10px;padding:8px 10px}
+.media{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.media img{display:block;width:100%;height:auto}
+.btn{border:0;background:var(--cvs);color:#0A1117;padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+
+.chain{display:flex;align-items:stretch;overflow-x:auto;padding:4px 2px 10px}
+.node{flex:0 0 auto;width:200px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:12px;text-align:left;transition:border-color .2s,transform .2s}
+.node:hover,.node.on{border-color:var(--cvs);transform:translateY(-2px)}
+.node .lab{margin-bottom:4px}
+.node b{font-size:14px;font-weight:600;display:block;line-height:1.35}
+.node.now{background:linear-gradient(160deg,rgba(255,90,102,.16),var(--panel) 60%)}
+.node.risk{border-style:dashed}
+.arrow{flex:0 0 28px;display:grid;place-items:center;color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.foot{color:var(--muted);font-size:13px;max-width:90ch}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="lab" data-kicker>карта пациента · пропедевтика внутренних болезней</div>
+      <h1 data-name></h1>
+      <p class="sub" data-sub></p>
+    </div>
+    <span class="badge" data-date></span>
+  </header>
+  <div class="vitals" data-vitals></div>
+  <div class="dx-line" data-tags></div>
+
+  <section class="app">
+    <aside class="panel">
+      <div class="tabs" role="tablist"><button data-t="c" class="on">Жалобы</button><button data-t="a">Анамнез</button><button data-t="f">Осмотр</button><button data-t="l">Анализы</button><button data-t="z">Итог</button></div>
+      <div class="tabbody" data-tab></div>
+    </aside>
+
+    <div class="viewer" data-viewer>
+      <canvas data-cv aria-label="Трёхмерная фигура пациента: тяни, чтобы повернуть; колесо или щипок — приближение"></canvas>
+      <div class="pins" data-pins></div>
+      <div class="vhint">ТЯНИ: ПОВОРОТ · КОЛЕСО / ЩИПОК: ПРИБЛИЖЕНИЕ</div>
+      <div class="vhr"><span data-hr>—</span><small>уд/мин</small></div>
+      <div class="vtools">
+        <div><button class="vbtn" data-x>Рентген: органы</button><button class="vbtn" data-cmp>Контур нормы</button></div>
+        <div><button class="vbtn" data-view="front">Спереди</button><button class="vbtn" data-view="side">Сбоку</button><button class="vbtn" data-view="back">Сзади</button><button class="vbtn" data-spin>Вращать</button></div>
+      </div>
+    </div>
+
+    <aside class="panel" data-detail></aside>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="align-items:baseline"><div class="lab">Почему это произошло и к чему ведёт · нажми звено</div>
+      <div class="legend"><span><i style="background:var(--cvs)"></i>есть у пациента</span><span><i style="border:1px dashed var(--muted)"></i>риск без лечения</span></div></div>
+    <div class="chain" data-chain></div>
+  </section>
+
+  <p class="foot">Учебная страница. Пациент обезличен: без имени и фотографий, фигура — общая модель. Звуки синтезированы и передают характер находки упрощённо. Находки с жёлтой меткой сгенерированы автоматически и ещё не проверены преподавателем.</p>
+</div>
+
+<script>
+const D = {"patient":{"initials":"Б.","sex":"m","age":58,"occupation":"водитель","admitted":"2026-10-14"},"headline":"Головные боли и одышка при нагрузке","vitals":{"bp":"170/100","hr":84,"rr":18,"bmi":31},"diagnosis":"Гипертоническая болезнь II стадии","complaints":[{"text":"Головная боль в затылке","detail":"Давящая, по утрам, после эмоциональной нагрузки; проходит после каптоприла.","findings":["bp_high"]},{"text":"«Мушки» перед глазами","detail":"На высоте головной боли.","findings":["bp_high"]},{"text":"Одышка при нагрузке","detail":"При подъёме на 2–3 этаж, около года. В покое нет.","findings":["s4"]},{"text":"Отёки голеней к вечеру","detail":"Небольшие, к утру проходят.","findings":["edema_legs"]}],"anamnesis_morbi":"АД повышено около 10 лет, максимально 190/110 мм рт. ст. Препараты принимает нерегулярно, «когда болит голова».","anamnesis_vitae":"Курит 30 лет по пачке в день (30 пачка-лет). Любит солёное. Отец перенёс инсульт в 62 года, у матери гипертония. Аллергии нет.","risk_factors":"Курение 30 пачка-лет, ожирение, избыток соли, отягощённая наследственность, нерегулярный приём препаратов.","status":{"general":"Состояние средней тяжести, сознание ясное, положение активное. Лицо гиперемировано. Рост 176 см, масса 96 кг, ИМТ 31.","lymph":"Не пальпируются.","pulse":"Симметричный, ритмичный, 84 в минуту, удовлетворительного наполнения, напряжённый.","bp":"170/100 справа, 165/100 слева.","resp":"ЧД 18. Перкуторно ясный лёгочный звук. Дыхание везикулярное, хрипов нет.","heart_palp":"Верхушечный толчок в V межреберье по левой СКЛ, 2,5 см², высокий, усиленный, резистентный.","heart_perc":"Левая граница относительной тупости по левой СКЛ, правая и верхняя в норме. Поперечник 14 см, аортальная конфигурация.","heart_ausc":"Тоны ритмичные, акцент II тона над аортой, на верхушке IV тон.","abdomen":"Мягкий, безболезненный. Печень по краю рёберной дуги, по Курлову 10 × 9 × 8 см."},"labs":[{"name":"Гемоглобин","value":"148 г/л","ref":"130–160","flag":"norm"},{"name":"Глюкоза","value":"5,9 ммоль/л","ref":"3,9–6,1","flag":"norm"},{"name":"Креатинин","value":"112 мкмоль/л","ref":"62–106","flag":"high"},{"name":"Холестерин общий","value":"6,4 ммоль/л","ref":"\u003c 5,2","flag":"high"}],"instrumental":[{"name":"ЭКГ","result":"Синусовый ритм 82 в минуту. Отклонение ЭОС влево. Признаки гипертрофии ЛЖ (Соколов–Лайон 39 мм)."}],"findings":[{"id":"obesity","title":"Ожирение, абдоминальный тип","system":"Общий осмотр","stage":"Этап 1 · общий осмотр","pos":[0,1,"front"],"organ":{"body":"obese"},"how":"Рост, масса, ИМТ = масса (кг) / рост² (м²); окружность талии.","why":"Избыток висцерального жира усиливает задержку натрия, активность симпатической системы и инсулинорезистентность.","leads":"Фактор риска гипертензии, сахарного диабета 2 типа, ИБС.","norm":"ИМТ 18,5–24,9 кг/м²; талия у мужчин \u003c 94 см, у женщин \u003c 80 см","detail":"ИМТ 31 кг/м², окружность талии 108 см — ожирение I степени, абдоминальный тип.","generated":false,"side":null,"key":"obesity-0"},{"id":"pulse_hard","title":"Твёрдый (напряжённый) пульс","system":"ССС","stage":"Этап 3 · пульс","pos":[-0.288,0.9,"front"],"how":"Безымянным пальцем пережимают лучевую артерию: чтобы пульс исчез под указательным, нужна большая сила.","why":"Напряжение пульса отражает систолическое давление: чем оно выше, тем труднее пережать артерию.","leads":"Подтверждает гипертензию ещё до измерения АД.","norm":"умеренного напряжения","detail":"Пульс 84 в минуту, ритмичный, напряжённый: пережать лучевую артерию трудно.","generated":false,"side":null,"key":"pulse_hard-1"},{"id":"bp_high","title":"Повышенное АД","system":"ССС","stage":"Этап 4 · АД","pos":[-0.25,1.24,"front"],"how":"Метод Короткова после 5 минут отдыха, на обеих руках.","why":"Повышено сопротивление периферических артерий и/или объём крови. 140–159/90–99 — 1 степень, 160–179/100–109 — 2 степень, ≥180/110 — 3 степень.","leads":"Длительно высокое АД поражает органы-мишени: сердце (гипертрофия ЛЖ), мозг, почки, сосуды глазного дна.","norm":"меньше 140/90 мм рт. ст.","detail":"170/100 мм рт. ст. справа, 165/100 слева — артериальная гипертензия 2 степени.","generated":false,"side":null,"key":"bp_high-2"},{"id":"apex_shift","title":"Усиленный, смещённый влево верхушечный толчок","system":"ССС","stage":"Этап 12 · пальпация","pos":[0.105,1.215,"front"],"pulse":true,"organ":{"heart":"lvh"},"how":"Ладонь основанием к грудине, гипотенар на V межреберье; затем уточнение двумя пальцами.","why":"Толчок образует левый желудочек. Утолщённая стенка даёт мощный плотный удар (резистентный толчок), увеличенная масса сдвигает верхушку влево; при дилатации — ещё и вниз, и толчок становится разлитым.","leads":"Пальпаторный признак гипертрофии или дилатации ЛЖ.","norm":"V межреберье, 1–1,5 см кнутри от левой СКЛ, 1–2 см², нерезистентный","detail":"V межреберье по левой СКЛ (смещён на 1,5 см кнаружи), площадь 2,5 см², высокий, усиленный, резистентный.","generated":false,"side":null,"key":"apex_shift-3"},{"id":"lvh","title":"Гипертрофия левого желудочка","system":"ССС","stage":"Этап 13 · перкуссия","pos":[0.03,1.255,0.02,"inside"],"organ":{"heart":"lvh"},"xray":true,"how":"Перкуссия: левая граница относительной тупости смещена влево, аортальная конфигурация с подчёркнутой «талией». Подтверждается ЭКГ и ЭхоКГ.","why":"Желудочек годами выталкивает кровь против высокого давления (гипертензия, аортальный стеноз) — стенка утолщается, полость не расширяется (концентрическая гипертрофия).","leads":"Жёсткий желудочек плохо расслабляется (диастолическая дисфункция), миокарду не хватает кислорода. Ведёт к сердечной недостаточности, аритмиям, ишемии.","norm":"левая граница 1–1,5 см кнутри от левой СКЛ, поперечник 11–13 см","detail":"Левая граница относительной тупости по левой СКЛ, поперечник 14 см, аортальная конфигурация.","generated":false,"side":null,"key":"lvh-4"},{"id":"acc_ao","title":"Акцент II тона над аортой","system":"ССС","stage":"Этап 14 · аускультация","pos":[-0.035,1.39,"front"],"sound":{"type":"heart","case":"accA","point":1},"how":"Сравнение II тона во II межреберье справа (аорта) и слева (лёгочная артерия).","why":"Аортальный клапан захлопывается под высоким давлением в аорте, поэтому II тон над ней громче.","leads":"Аускультативный признак артериальной гипертензии и атеросклероза аорты.","norm":"II тон одинаков над аортой и лёгочной артерией","detail":"II тон во II межреберье справа заметно громче, чем слева.","generated":false,"side":null,"key":"acc_ao-5"},{"id":"s4","title":"IV тон (пресистолический галоп)","system":"ССС","stage":"Этап 14 · аускультация","pos":[0.105,1.215,"front"],"sound":{"type":"heart","case":"s4","point":0},"how":"Аускультация на верхушке: глухой тон перед I тоном.","why":"Утолщённый, жёсткий ЛЖ плохо расслабляется; в конце диастолы предсердие с силой проталкивает в него кровь, стенка вибрирует.","leads":"Признак диастолической дисфункции: гипертензия, аортальный стеноз, ишемия миокарда.","norm":"два тона","detail":"На верхушке перед I тоном глухой дополнительный тон: пресистолический галоп.","generated":false,"side":null,"key":"s4-6"},{"id":"edema_legs","title":"Отёки голеней и стоп","system":"ССС","stage":"Этап 1 · общий осмотр","pos":[0.1,0.36,"front"],"organ":{"edema":true},"how":"Давление пальцем 5–10 секунд на переднюю поверхность голени: остаётся ямка.","why":"Застой в большом круге и задержка натрия: жидкость выходит из сосудов в ткани. Сердечные отёки начинаются с ног и нарастают к вечеру.","leads":"Нарастание отёков — признак прогрессирования сердечной недостаточности. Почечные отёки, наоборот, начинаются с лица, утром.","norm":"ямки не остаётся","detail":"Неглубокая ямка на голенях, исчезает за 10–15 секунд: пастозность.","generated":false,"side":null,"key":"edema_legs-7"}],"syndromes":[{"id":"htn","title":"Артериальной гипертензии","system":"ССС","findings":["bp_high","pulse_hard","acc_ao","obesity"],"mechanism":"Годами повышено сопротивление артериол и объём циркулирующей крови; поддерживают курение, соль, ожирение, наследственность.","risks":["Гипертрофия ЛЖ","Инсульт","Инфаркт миокарда","Хроническая болезнь почек"]},{"id":"lvh","title":"Гипертрофии левого желудочка","system":"ССС","findings":["apex_shift","lvh","s4"],"mechanism":"Перегрузка давлением: ЛЖ выталкивает кровь против высокого АД или через суженный аортальный клапан, стенка утолщается.","risks":["Диастолическая дисфункция","Сердечная недостаточность","Фибрилляция предсердий","Ишемия миокарда"]}],"conclusion":"Гипертоническая болезнь II стадии. Артериальная гипертензия 2 степени. Гипертрофия левого желудочка. Ожирение I степени. Дислипидемия. Курение.","plan":["ЭхоКГ: толщина стенок и масса миокарда ЛЖ","Осмотр глазного дна","СКФ и альбумин в моче","Липидный профиль"],"student_check":"Студент не выделил: Гипертрофии левого желудочка."};
+</script>
+<script>
+(function(){
+if(!D){document.body.innerHTML='<p style="padding:24px">Шаблон без данных. Страницу собирает build.js.</p>';return}
+const P=D.patient, $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const F=D.findings; /* резолвленные: карточка базы + данные из протокола */
+F.forEach((f,i)=>f.n=i+1);
+
+/* ---------- шапка ---------- */
+const sexW=P.sex==='f'?'Женщина':'Мужчина';
+$('[data-name]').textContent=`Пациент${P.sex==='f'?'ка':''} ${P.initials||''}, ${P.age} ${ageWord(P.age)}`;
+$('[data-sub]').textContent=[sexW+(P.occupation?', '+P.occupation:''), D.headline].filter(Boolean).join('. ');
+$('[data-date]').textContent=P.admitted?`поступил${P.sex==='f'?'а':''} ${P.admitted}`:'учебный разбор';
+const V=D.vitals||{};
+$('[data-vitals]').innerHTML=[['АД',V.bp],['ЧСС',V.hr],['ЧД',V.rr],['t°',V.temp],['SpO₂',V.spo2],['ИМТ',V.bmi]].filter(x=>x[1]!=null&&x[1]!=='').map(([k,v])=>`<span>${k}<b>${esc(v)}</b></span>`).join('');
+$('[data-hr]').textContent=V.hr||'—';
+$('[data-tags]').innerHTML=D.syndromes.map(s=>`<span class="tag hot">Синдром ${esc(s.title.charAt(0).toLowerCase()+s.title.slice(1))}</span>`).join('')+(D.diagnosis?`<span class="tag">${esc(D.diagnosis)}</span>`:'');
+function ageWord(n){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return 'лет';if(n1>1&&n1<5)return 'года';if(n1===1)return 'год';return 'лет'}
+
+/* ---------- вкладки ---------- */
+let selected=null;
+function findBtn(f){return `<button class="item link ${selected===f.key?'on':''}" data-go="${f.key}"><span class="num ${f.generated?'gen':''} ${f.pos?'':'free'}">${f.n}</span><span><b>${esc(f.title)}${f.side?` ${f.side==='L'?'слева':'справа'}`:''}</b><small>${esc(f.stage||'')}</small></span></button>`}
+function renderTab(t){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  const T=$('[data-tab]');let h='';
+  if(t==='c')h=(D.complaints||[]).map(c=>{const ok=(c.findings||[]).find(k=>F.some(f=>f.id===k));return `<button class="item ${ok?'link':''}" ${ok?`data-go="${F.find(f=>f.id===ok).key}"`:''}>${ok?'<span class="num">!</span>':''}<span><b>${esc(c.text)}</b>${c.detail?`<small>${esc(c.detail)}</small>`:''}</span></button>`}).join('')+(D.complaints?.some(c=>c.findings?.length)?'<p class="lab" style="margin-top:4px">жалоба с «!» связана с находкой — нажми</p>':'');
+  if(t==='a')h=[['Anamnesis morbi',D.anamnesis_morbi],['Anamnesis vitae',D.anamnesis_vitae]].filter(x=>x[1]).map(([k,v])=>`<div class="item"><b>${k}</b><div class="txt">${esc(v)}</div></div>`).join('');
+  if(t==='f'){const st=D.status||{};const names={general:'Общий осмотр',lymph:'Лимфоузлы',pulse:'Пульс',bp:'АД',resp:'Дыхательная система',heart_palp:'Сердце: осмотр и пальпация',heart_perc:'Сердце: перкуссия',heart_ausc:'Сердце: аускультация',abdomen:'Живот',kidneys:'Почки',other:'Другое'};
+    h='<p class="lab">находки</p>'+F.map(findBtn).join('')+'<p class="lab" style="margin-top:6px">status praesens</p>'+Object.entries(st).filter(x=>x[1]).map(([k,v])=>`<div class="item"><b>${esc(names[k]||k)}</b><div class="txt">${esc(v)}</div></div>`).join('')}
+  if(t==='l'){const L=D.labs||[];h=L.length?`<div class="labs"><div class="h">Показатель</div><div class="h">Значение</div><div class="h">Норма</div>${L.map(x=>`<div>${esc(x.name)}</div><div class="${x.flag==='high'?'hi':x.flag==='low'?'lo':''}">${esc(x.value)}${x.flag==='high'?' ↑':x.flag==='low'?' ↓':''}</div><div style="color:var(--muted)">${esc(x.ref||'')}</div>`).join('')}</div>`+(D.instrumental||[]).map(x=>`<div class="item"><b>${esc(x.name)}</b><div class="txt">${esc(x.result)}</div></div>`).join(''):'<p style="color:var(--muted)">Анализы не добавлены.</p>'}
+  if(t==='z')h=`${D.conclusion?`<div class="item"><b>Заключение</b><div class="txt">${esc(D.conclusion)}</div></div>`:''}
+    <div class="item"><b>Синдромы</b><div class="txt">${D.syndromes.map(s=>'• Синдром '+esc(s.title.charAt(0).toLowerCase()+s.title.slice(1))).join('<br>')}</div></div>
+    ${D.student_check?`<div class="item"><b>Сверка со студентом</b><div class="txt">${esc(D.student_check)}</div></div>`:''}
+    ${(D.plan||[]).length?`<div class="item"><b>Что сделать дальше</b><div class="txt">${D.plan.map(x=>'• '+esc(x)).join('<br>')}</div></div>`:''}`;
+  T.innerHTML=h;T.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>select(b.dataset.go,true));
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>renderTab(b.dataset.t));
+
+/* ---------- разбор находки ---------- */
+function detail(f){
+  const Dt=$('[data-detail]');
+  if(!f){Dt.innerHTML=`<div class="d-stage">как пользоваться</div><div class="d-title">Нажми точку на пациенте</div>
+    <p style="color:var(--muted);font-size:14.5px">Каждая точка — находка с занятия: что нашли, как выявили, почему так, к чему ведёт. «Рентген» показывает органы внутри, «Контур нормы» — нормальное сердце поверх. Серые номера в списке «Осмотр» — находки без точки на теле.</p>
+    ${D.conclusion?`<div class="sec"><h4>Главное</h4><p>${esc(D.conclusion)}</p></div>`:''}`;return}
+  Dt.innerHTML=`<div class="d-stage">${esc(f.stage||'')}</div><div class="d-title">${esc(f.title)}${f.side?` ${f.side==='L'?'слева':'справа'}`:''}</div>
+    ${f.generated?'<div class="warnbox">Сгенерировано автоматически, не проверено преподавателем.</div>':''}
+    ${(f.media||[]).map(m=>`<figure class="media" style="margin:0"><img src="${esc(m.src)}" alt="${esc(m.alt||f.title)}" loading="lazy"></figure>`).join('')}
+    <div class="sec"><h4>Что нашли</h4><p>${esc(f.detail||f.title)}</p></div>
+    ${f.how?`<div class="sec"><h4>Как выявили</h4><p>${esc(f.how)}</p></div>`:''}
+    ${f.why?`<div class="sec"><h4>Почему так</h4><p>${esc(f.why)}</p></div>`:''}
+    ${f.leads?`<div class="sec"><h4>К чему ведёт</h4><p>${esc(f.leads)}</p></div>`:''}
+    ${f.norm?`<p class="norm">Норма: ${esc(f.norm)}</p>`:''}
+    ${f.sound?`<div class="row" style="justify-content:flex-start"><button class="btn" data-play>▶ Послушать</button><button class="btn ghost" data-norm>Норма для сравнения</button></div>`:''}
+    <div class="row"><button class="btn ghost" data-pv>← Предыдущая</button><button class="btn ghost" data-nx>Следующая →</button></div>`;
+  const pl=Dt.querySelector('[data-play]');if(pl){pl.onclick=()=>Snd.play(f.sound);Dt.querySelector('[data-norm]').onclick=()=>Snd.play(Snd.normalOf(f.sound))}
+  const i=F.indexOf(f),L=F.length;
+  Dt.querySelector('[data-pv]').onclick=()=>select(F[(i-1+L)%L].key,true);
+  Dt.querySelector('[data-nx]').onclick=()=>select(F[(i+1)%L].key,true);
+}
+
+/* ---------- цепочка ---------- */
+function chainNodes(){
+  const nodes=[];
+  if(D.risk_factors)nodes.push({t:'Факторы риска',d:D.risk_factors,now:1,f:[]});
+  D.syndromes.forEach(s=>nodes.push({t:'Синдром '+s.title.charAt(0).toLowerCase()+s.title.slice(1),d:s.mechanism,now:1,f:F.filter(f=>s.findings.includes(f.id)).map(f=>f.key)}));
+  const seen=new Set(D.syndromes.map(s=>s.title.toLowerCase()));
+  D.syndromes.flatMap(s=>s.risks||[]).forEach(r=>{const k=r.toLowerCase();if(seen.has(k)||nodes.some(n=>n.t.toLowerCase().includes(k)))return;seen.add(k);nodes.push({t:r,d:'Возможное следствие без лечения и контроля. Насколько риск высок, решает врач по совокупности данных.',f:[]})});
+  return nodes;
+}
+const NODES=chainNodes();
+function renderChain(active){
+  const C=$('[data-chain]');
+  C.innerHTML=NODES.map((n,i)=>`${i?'<div class="arrow" aria-hidden="true">→</div>':''}<button class="node ${n.now?'now':'risk'} ${active===i?'on':''}" data-i="${i}"><div class="lab">${n.now?'есть сейчас':'риск'}</div><b>${esc(n.t)}</b></button>`).join('');
+  C.querySelectorAll('.node').forEach(b=>b.onclick=()=>{const n=NODES[+b.dataset.i];renderChain(+b.dataset.i);highlight(n.f);
+    const Dt=$('[data-detail]');
+    Dt.innerHTML=`<div class="d-stage">${n.now?'есть у пациента':'риск без лечения'}</div><div class="d-title">${esc(n.t)}</div><div class="sec"><p>${esc(n.d||'')}</p></div>
+      ${n.f.length?`<div class="sec"><h4>Находки этого звена</h4>${n.f.map(k=>findBtn(F.find(x=>x.key===k))).join('')}</div>`:''}`;
+    Dt.querySelectorAll('[data-go]').forEach(x=>x.onclick=()=>select(x.dataset.go,true))});
+}
+
+/* ======================= ЗВУК ======================= */
+const Snd=(function(){
+  let AC=null,NB=null;
+  const ac=()=>{if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C()}if(AC.state==='suspended')AC.resume();return AC};
+  const nb=c=>{if(NB)return NB;NB=c.createBuffer(1,c.sampleRate,c.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return NB};
+  let stopAt=0;
+  function tone(c,t,f,d,a,nf,na){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(f*1.5,t);o.frequency.exponentialRampToValueAtTime(f,t+d*.6);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.7*Math.min(1.6,a),t+.008);g.gain.exponentialRampToValueAtTime(.0006,t+d);o.connect(g).connect(c.destination);o.start(t);o.stop(t+d+.03);
+    if(na){const s=c.createBufferSource();s.buffer=nb(c);const bp=c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=nf;const ng=c.createGain();ng.gain.setValueAtTime(na*a,t);ng.gain.exponentialRampToValueAtTime(.0005,t+d*.6);s.connect(bp).connect(ng).connect(c.destination);s.start(t,Math.random()*.5);s.stop(t+d)}}
+  function noiseEnv(c,t0,dur,filt,f,q,env){const s=c.createBufferSource();s.buffer=nb(c);s.loop=true;const fl=c.createBiquadFilter();fl.type=filt;fl.frequency.value=f;fl.Q.value=q;const g=c.createGain();g.gain.setValueAtTime(0,t0);env.forEach(([dt,v])=>g.gain.linearRampToValueAtTime(v,t0+dt));s.connect(fl).connect(g).connect(c.destination);s.start(t0);s.stop(t0+dur)}
+  function click(c,t,dur,f,g,type){const s=c.createBufferSource();s.buffer=nb(c);const fl=c.createBiquadFilter();fl.type=type||'highpass';fl.frequency.value=f;fl.Q.value=1.2;const gg=c.createGain();gg.gain.setValueAtTime(0,t);gg.gain.linearRampToValueAtTime(g,t+.0015);gg.gain.exponentialRampToValueAtTime(.0005,t+dur);s.connect(fl).connect(gg).connect(c.destination);s.start(t,Math.random()*.8);s.stop(t+dur+.02)}
+  const S1W=[1,.5,.5,.85,.65],S2W=[.45,1,1,.45,.7];
+  function heart(c,o){const hr=(D.vitals&&+D.vitals.hr)||76;let t=c.currentTime+.1;const pt=o.point||0;
+    for(let k=0;k<6;k++){let rr=60/hr;if(o.case==='af')rr*=.55+Math.random()*.9;const s2=.33;
+      if(o.case==='s4')tone(c,t-.09,28,.08,.75);
+      tone(c,t+.04,48,.11,S1W[pt]*(o.case==='af'?.5+Math.random()*.7:1),200,.15);
+      let a2=S2W[pt];if(o.case==='accA'&&pt===1)a2*=1.9;if(o.case==='accP'&&pt===2)a2*=1.9;tone(c,t+s2,82,.07,a2,260,.15);
+      if(o.case==='s3')tone(c,t+s2+.15,30,.09,.75);
+      t+=rr}
+    stopAt=t}
+  function lung(c,o){const B={ves:{i:1.5,e:.6,ig:.5,eg:.28,lp:550},bronch:{i:1.1,gap:.25,e:1.6,ig:.32,eg:.5,bp:1300},weak:{i:1.5,e:.45,ig:.16,eg:.08,lp:450},absent:{i:1.5,e:0,ig:.012,eg:0,lp:300}}[o.base||'ves'];
+    let t0=c.currentTime+.1;
+    for(let k=0;k<3;k++){const te=t0+B.i+(B.gap||0);
+      if(B.bp)noiseEnv(c,t0,B.i,'bandpass',B.bp,.55,[[.15,B.ig],[B.i-.12,B.ig],[B.i,0]]);else noiseEnv(c,t0,B.i,'lowpass',B.lp,.7,[[B.i*.85,B.ig],[B.i,0]]);
+      if(B.e){if(B.bp)noiseEnv(c,te,B.e,'bandpass',B.bp,.55,[[.08,B.eg],[B.e-.2,B.eg],[B.e,0]]);else noiseEnv(c,te,B.e,'lowpass',B.lp,.7,[[.08,B.eg],[B.e,0]])}
+      (o.adv||[]).forEach(a=>{
+        if(a==='wheeze'){const g=c.createGain();g.connect(c.destination);g.gain.setValueAtTime(0,te);g.gain.linearRampToValueAtTime(.06,te+.2);g.gain.linearRampToValueAtTime(.04,te+1.6);g.gain.linearRampToValueAtTime(0,te+1.9);
+          [470,640,830].forEach((f,i)=>{const os=c.createOscillator();os.frequency.setValueAtTime(f,te);os.frequency.linearRampToValueAtTime(f*.93,te+1.9);const gi=c.createGain();gi.gain.value=[1,.6,.35][i];os.connect(gi).connect(g);os.start(te);os.stop(te+2)})}
+        if(a==='fine')for(let i=0;i<14;i++)click(c,t0+B.i*(.5+Math.random()*.48),.006,1800,.35);
+        if(a==='crep')for(let i=0;i<30;i++)click(c,t0+B.i*(.86+Math.random()*.13),.003,2600,.3);
+        if(a==='rub')[[t0+.1,B.i-.2],[te+.05,1.4]].forEach(([s0,len])=>{for(let tt=s0;tt<s0+len;tt+=.07+Math.random()*.05)click(c,tt,.045,350+Math.random()*350,.22,'bandpass')});
+      });
+      t0+=3.8}
+    stopAt=t0}
+  function perc(c,o){const P={clear:{f:[118,176,236],g:[.9,.45,.22],dec:.3,gain:1},dull:{f:[330,560],g:[.45,.2],dec:.045,gain:.42},box:{f:[86,129,182],g:[1,.6,.35],dec:.5,gain:1.2},tymp:{f:[212,424,636],g:[1,.45,.25],dec:.36,gain:.9}}[o.kind||'clear'];
+    for(let k=0;k<3;k++){const t=c.currentTime+.1+k*.7;P.f.forEach((f,i)=>{const os=c.createOscillator(),g=c.createGain();os.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(P.g[i]*P.gain*.6,t+.004);g.gain.exponentialRampToValueAtTime(.0005,t+P.dec*(1-i*.15)+.02);os.connect(g).connect(c.destination);os.start(t);os.stop(t+P.dec+.1)});click(c,t,.03,500,.3*P.gain,'bandpass')}}
+  return {
+    play(o){const c=ac();if(!c||!o)return;if(o.type==='heart')heart(c,o);if(o.type==='lung')lung(c,o);if(o.type==='perc')perc(c,o)},
+    normalOf(o){if(!o)return null;if(o.type==='heart')return {type:'heart',case:'norm',point:o.point||0};if(o.type==='lung')return {type:'lung',base:'ves',adv:[]};return {type:'perc',kind:'clear'}}
+  };
+})();
+
+/* ======================= 3D ======================= */
+let three=null;const pinEls={};
+function highlight(keys){Object.entries(pinEls).forEach(([k,e])=>e.classList.toggle('on',keys.includes(k)))}
+function select(key,focus){const f=F.find(x=>x.key===key);if(!f)return;selected=key;highlight([key]);detail(f);
+  if($('.tabs button.on').dataset.t==='f')renderTab('f');if(three&&focus)three.focus(f)}
+
+function initThree(){
+  const Vw=$('[data-viewer]'),cv=$('[data-cv]');
+  if(!window.THREE||!THREE.OrbitControls){Vw.insertAdjacentHTML('beforeend','<div class="nogl">3D-модуль не загрузился. Находки доступны во вкладке «Осмотр».</div>');return}
+  let renderer;try{renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true})}catch(e){Vw.insertAdjacentHTML('beforeend','<div class="nogl">Браузер не поддерживает 3D. Находки доступны во вкладке «Осмотр».</div>');return}
+  renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  const has=(k,v)=>F.some(f=>f.organ&&f.organ[k]&&(v==null||f.organ[k]===v));
+  const sideOf=v=>{const f=F.find(f=>f.organ&&f.organ.lungs===v);return f?(f.side||'R'):null};
+  const female=P.sex==='f',old=(P.age||40)>=60;
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.01,30);camera.position.set(0,1.2,3.1);
+  const controls=new THREE.OrbitControls(camera,cv);controls.target.set(0,1.05,0);controls.enableDamping=true;controls.minDistance=.45;controls.maxDistance=4.5;controls.enablePan=false;controls.autoRotateSpeed=1.1;
+  scene.add(new THREE.HemisphereLight(0xdfe9ff,0x2a211c,.75));
+  const key=new THREE.DirectionalLight(0xfff1e6,1.05);key.position.set(1.6,2.6,2.2);scene.add(key);
+  const rim=new THREE.DirectionalLight(0x7fb6ff,.75);rim.position.set(-2,1.8,-2.2);scene.add(rim);
+  const fill=new THREE.DirectionalLight(0xffffff,.25);fill.position.set(-2,.5,2);scene.add(fill);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(.62,64),new THREE.MeshBasicMaterial({color:0x1b2b37,transparent:true,opacity:.7}));disc.rotation.x=-Math.PI/2;scene.add(disc);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.6,.62,96),new THREE.MeshBasicMaterial({color:0xff5a66,transparent:true,opacity:.35,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.002;scene.add(ring);
+  /* кожа: оттенок по находкам */
+  let skinCol=0xb98767;if(has('skin','pallor'))skinCol=0xcfb3a0;if(has('skin','jaundice'))skinCol=0xc9a45e;
+  const skin=new THREE.MeshStandardMaterial({color:skinCol,roughness:.6,transparent:true,opacity:1});
+  const acro=new THREE.MeshStandardMaterial({color:has('skin','cyanosis')?0x8a7f9e:skinCol,roughness:.6,transparent:true,opacity:1});
+  const legM=new THREE.MeshStandardMaterial({color:has('edema')?0xb39079:skinCol,roughness:.5,transparent:true,opacity:1});
+  const body=new THREE.Group();scene.add(body);const parts=[],mats=[skin,acro,legM];
+  const add=(geo,pos,scl,mat)=>{const m=new THREE.Mesh(geo,mat||skin);m.position.set(...pos);if(scl)m.scale.set(...scl);body.add(m);parts.push(m);return m};
+  /* туловище: профиль зависит от пола, ожирения, бочкообразной клетки */
+  const obese=has('body','obese')||has('ascites'),barrel=has('body','barrel');
+  const sh=female?.93:1, hip=female?1.06:1, belly=obese?1.12:1;
+  const prof=[[0,.86],[.13*hip,.87],[.17*hip,.92],[.175*hip,.98],[.158*hip*(female?.98:1)*belly,1.05],[.152*belly*(female?.88:1),1.1],[.165*(obese?1.06:1)*(female?.9:1),1.17],[.178*sh,1.24],[.188*sh,1.31],[.192*sh,1.37],[.186*sh,1.43],[.16*sh,1.475],[.1,1.505],[.06,1.52],[0,1.53]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const torso=add(new THREE.LatheGeometry(prof,64),[0,0,0],[1,1,barrel?.86:.66]);
+  if(has('ascites')){add(new THREE.SphereGeometry(.16,40,30),[0,1.0,.05],[1,.85,.75])}
+  add(new THREE.CylinderGeometry(.05,.058,.14,24),[0,1.56,0]);
+  const head=add(new THREE.SphereGeometry(.105,40,30),[0,1.69,.005],[.86,1.06,.97]);
+  if(female){[-1,1].forEach(s=>add(new THREE.SphereGeometry(.06,28,20),[s*.075,1.3,.085],[1,.95,.85]))}
+  const limb=(a,b,r,mat)=>{const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=B.clone().sub(A);const m=add(new THREE.CapsuleGeometry(r,d.length(),8,20),[0,0,0],null,mat);m.position.copy(A.clone().add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m};
+  const ax=.2*sh;
+  [-1,1].forEach(s=>{
+    limb([s*ax,1.445,0],[s*(ax+.055),1.13,0],.047*(female?.88:1));limb([s*(ax+.055),1.13,0],[s*(ax+.085),.87,.035],.039*(female?.88:1));add(new THREE.SphereGeometry(.045,20,16),[s*(ax+.09),.8,.04],[.68,1.25,.5],acro);
+    add(new THREE.SphereGeometry(.06,24,18),[s*.175*sh,1.44,0],[1,.85,.9]);
+    limb([s*.088*hip,.9,0],[s*.098*hip,.5,.005],.07*(female?1.04:1));limb([s*.098*hip,.5,.005],[s*.1*hip,.085,0],.054*(has('edema')?1.18:1),legM);
+    add(new THREE.BoxGeometry(.085,.055,.22),[s*.1*hip,.03,.05],has('edema')?[1.12,1.2,1]:null,legM);
+  });
+  const dark=new THREE.MeshStandardMaterial({color:0x3b2a22,roughness:.8,transparent:true});mats.push(dark);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.016,.045,16),acro);nose.position.set(0,1.68,.1);nose.rotation.x=Math.PI/2;body.add(nose);
+  const lipM=new THREE.MeshStandardMaterial({color:has('skin','cyanosis')?0x6f5d93:has('skin','pallor')?0xc7a29a:0xa5584f,roughness:.5,transparent:true});mats.push(lipM);
+  const eyeM=new THREE.MeshStandardMaterial({color:has('skin','jaundice')?0xd8c25a:0xeeeae2,roughness:.4,transparent:true});mats.push(eyeM);
+  [-1,1].forEach(s=>{const w=new THREE.Mesh(new THREE.SphereGeometry(.014,14,10),eyeM);w.position.set(s*.033,1.705,.088);w.scale.set(1.3,.7,.6);body.add(w);const e=new THREE.Mesh(new THREE.SphereGeometry(.007,12,10),dark);e.position.set(s*.033,1.705,.096);body.add(e)});
+  const ray=new THREE.Raycaster();
+  function surf(x,y,side){const z=side==='back'?-3:3;ray.set(new THREE.Vector3(x,y,z),new THREE.Vector3(0,0,side==='back'?1:-1));const h=ray.intersectObjects(parts,false)[0];
+    if(!h)return {p:new THREE.Vector3(x,y,0),n:new THREE.Vector3(0,0,side==='back'?-1:1)};const n=h.face.normal.clone().transformDirection(h.object.matrixWorld);return {p:h.point.clone().add(n.clone().multiplyScalar(.004)),n}}
+  body.updateMatrixWorld(true);
+  if(!female)[-1,1].forEach(s=>{const q=surf(s*.092,1.33,'front');const m=new THREE.Mesh(new THREE.CircleGeometry(.009,16),dark);m.position.copy(q.p);m.lookAt(q.p.clone().add(q.n));body.add(m)});
+  const umb=surf(0,1.04,'front');const um=new THREE.Mesh(new THREE.CircleGeometry(.008,16),dark);um.position.copy(umb.p);um.lookAt(umb.p.clone().add(umb.n));body.add(um);
+  {const lq=surf(0,1.645,'front');const lip=new THREE.Mesh(new THREE.SphereGeometry(.02,20,12),lipM);lip.position.copy(lq.p);lip.scale.set(1.1,.32,.35);body.add(lip)}
+  /* набухшие шейные вены — на коже */
+  if(has('jvd')){const vm=new THREE.MeshStandardMaterial({color:0x6a5a8a,roughness:.5});[-1,1].forEach(s=>{const c=new THREE.CatmullRomCurve3([[s*.03,1.5,.05],[s*.036,1.55,.052],[s*.04,1.6,.05]].map(p=>new THREE.Vector3(...p)));body.add(new THREE.Mesh(new THREE.TubeGeometry(c,16,.006,8,false),vm))})}
+  /* ---------- органы ---------- */
+  const org=new THREE.Group();scene.add(org);org.visible=false;
+  const emph=has('lungs','emphysema');
+  const lungM=()=>new THREE.MeshStandardMaterial({color:emph?0x9cc8f2:0x6fa8e6,transparent:true,opacity:.32,roughness:.4,depthWrite:false});
+  const lungs={};[-1,1].forEach(s=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.1,32,24),lungM());l.position.set(s*.098,1.33,-.01);l.scale.set(.82*(emph?1.08:1),1.5*(emph?1.1:1),.78*(emph?1.15:1));org.add(l);lungs[s<0?'R':'L']=l});
+  /* сторона R = правая сторона пациента = x<0 */
+  const sx=side=>side==='L'?1:-1;
+  if(has('lungs','consolidation')){const s=sideOf('consolidation');const m=new THREE.Mesh(new THREE.SphereGeometry(.07,28,20),new THREE.MeshStandardMaterial({color:0xa8433b,roughness:.7,transparent:true,opacity:.85}));m.position.set(sx(s)*.1,1.2,-.02);m.scale.set(1.05,.85,1);org.add(m)}
+  if(has('lungs','effusion')){const s=sideOf('effusion');const m=new THREE.Mesh(new THREE.SphereGeometry(.09,28,20,0,Math.PI*2,Math.PI*.45,Math.PI*.55),new THREE.MeshStandardMaterial({color:0x2f7fd0,roughness:.2,transparent:true,opacity:.7}));m.position.set(sx(s)*.1,1.2,-.01);m.scale.set(1,1.1,.95);org.add(m)}
+  if(has('lungs','congestion')){const dm=new THREE.MeshStandardMaterial({color:0x7fd0ff,roughness:.2,transparent:true,opacity:.75});for(let i=0;i<40;i++){const s=i%2?1:-1;const d=new THREE.Mesh(new THREE.SphereGeometry(.006,8,6),dm);d.position.set(s*(.06+Math.random()*.08),1.15+Math.random()*.08,-.05+Math.random()*.08);org.add(d)}}
+  /* бронхиальное дерево */
+  const tube=(pts,r,mat)=>{const c=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));const m=new THREE.Mesh(new THREE.TubeGeometry(c,24,r,10,false),mat);org.add(m);return m};
+  const obs=has('bronchi','obstruction');
+  const brM=new THREE.MeshStandardMaterial({color:obs?0xd9a24a:0xd8d2c4,roughness:.5,transparent:true,opacity:.9});
+  tube([[0,1.5,0],[0,1.42,0]],.009,brM);
+  [-1,1].forEach(s=>{tube([[0,1.42,0],[s*.04,1.38,0],[s*.07,1.32,0]],.0075,brM);[[.1,1.26],[.06,1.22],[.11,1.36]].forEach(([x,y])=>tube([[s*.07,1.32,0],[s*x,y,(Math.random()-.5)*.04]],obs?.0028:.0045,brM))});
+  if(obs){const pm=new THREE.MeshStandardMaterial({color:0xe8d27a,roughness:.3});[[-.085,1.29],[.09,1.3],[-.1,1.26],[.07,1.24]].forEach(([x,y])=>{const p=new THREE.Mesh(new THREE.SphereGeometry(.007,10,8),pm);p.position.set(x,y,0);org.add(p)})}
+  /* печень */
+  const big=has('liver','enlarged');const liver=new THREE.Mesh(new THREE.SphereGeometry(.1,32,24),new THREE.MeshStandardMaterial({color:0x8e3b30,roughness:.6,transparent:true,opacity:.75}));
+  liver.position.set(-.04,big?1.07:1.11,.01);liver.scale.set(1.25*(big?1.15:1),.42*(big?1.35:1),.7);liver.rotation.z=.18;org.add(liver);
+  if(has('ascites')){const a=new THREE.Mesh(new THREE.SphereGeometry(.15,32,24),new THREE.MeshStandardMaterial({color:0x5aa7e0,transparent:true,opacity:.35,depthWrite:false}));a.position.set(0,.98,.02);a.scale.set(1,.7,.7);org.add(a)}
+  /* сердце */
+  const lvh=has('heart','lvh');
+  const heart=new THREE.Group();heart.position.set(.03,1.255,.02);org.add(heart);
+  const lv=new THREE.Mesh(new THREE.SphereGeometry(.05,40,30),new THREE.MeshStandardMaterial({color:0xd03a46,roughness:.35,emissive:0x400a10,emissiveIntensity:.6}));
+  const k=lvh?1:.78;lv.scale.set(1.38*k,1.12*k,1.08*k);lv.rotation.z=-.55;lv.position.set(.012,-.004,-.004);heart.add(lv);
+  const rv=new THREE.Mesh(new THREE.SphereGeometry(.04,32,24),new THREE.MeshStandardMaterial({color:0xb5576a,roughness:.4}));rv.scale.set(1.15,.9,.8);rv.position.set(-.032,.004,.022);heart.add(rv);
+  const arM=new THREE.MeshStandardMaterial({color:0xc8323c,roughness:.4}),paM=new THREE.MeshStandardMaterial({color:0x5a7fc0,roughness:.4});
+  tube([[.015,1.29,0],[0,1.35,.005],[-.02,1.41,-.005],[-.05,1.415,-.03],[-.06,1.36,-.05],[-.058,1.2,-.055]],.013,arM);
+  tube([[-.005,1.29,.03],[.01,1.34,.03],[.04,1.37,.01]],.011,paM);
+  const ghost=new THREE.Mesh(new THREE.SphereGeometry(.05,24,18),new THREE.MeshBasicMaterial({color:0x7fe3b5,wireframe:true,transparent:true,opacity:.55}));
+  ghost.scale.set(1.05,.95,.9);ghost.rotation.z=-.55;ghost.position.copy(heart.position).add(new THREE.Vector3(-.006,0,0));ghost.visible=false;scene.add(ghost);
+  /* ---------- точки ---------- */
+  const Pn=$('[data-pins]');
+  const pins=F.filter(f=>f.pos).map(f=>{const el=document.createElement('button');el.className='pin'+(f.generated?' gen':'');el.innerHTML=`<i>${f.n}</i><span>${esc(f.title)}</span>`;el.setAttribute('aria-label',f.title);Pn.appendChild(el);pinEls[f.key]=el;
+    let p,n;const pos=f.pos.slice();if(f.side==='L')pos[0]=-pos[0];
+    if(pos[3]==='inside'){p=new THREE.Vector3(pos[0],pos[1],pos[2]);n=null}else{const q=surf(pos[0],pos[1],pos[2]);p=q.p;n=q.n}
+    el.onclick=()=>select(f.key,true);return {f,el,p,n}});
+  let xray=false,cmp=false;
+  const setX=v=>{xray=v;org.visible=v;mats.forEach(m=>{m.opacity=v?.2:1;m.depthWrite=!v});$('[data-x]').classList.toggle('on',v)};
+  $('[data-x]').onclick=()=>setX(!xray);
+  $('[data-cmp]').onclick=()=>{cmp=!cmp;ghost.visible=cmp;$('[data-cmp]').classList.toggle('on',cmp);if(cmp&&!xray)setX(true)};
+  const spinB=$('[data-spin]');const setSpin=v=>{controls.autoRotate=v;spinB.classList.toggle('on',v)};setSpin(true);spinB.onclick=()=>setSpin(!controls.autoRotate);
+  cv.addEventListener('pointerdown',()=>setSpin(false));
+  let tw=null;const flyTo=(target,pos)=>{tw={t0:performance.now(),fromT:controls.target.clone(),fromP:camera.position.clone(),toT:target,toP:pos}};
+  const views={front:[0,1.2,3.1],side:[3.1,1.2,0],back:[0,1.2,-3.1]};
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{setSpin(false);flyTo(new THREE.Vector3(0,1.05,0),new THREE.Vector3(...views[b.dataset.view]))});
+  const focus=f=>{const pin=pins.find(q=>q.f===f);if(!pin)return;setSpin(false);if(f.xray||(f.pos&&f.pos[3]==='inside'))setX(true);
+    const dir=pin.n?pin.n.clone().setY(pin.n.y*.4).normalize():new THREE.Vector3(.35,.1,1).normalize();flyTo(pin.p.clone(),pin.p.clone().add(dir.multiplyScalar(.85)))};
+  const size=()=>{const w=Vw.clientWidth,h=Vw.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()};
+  new ResizeObserver(size).observe(Vw);size();
+  const hr=(D.vitals&&+D.vitals.hr)||76,rr=60/hr,v3=new THREE.Vector3(),pulsing=pins.filter(q=>q.f.pulse);
+  const loop=now=>{requestAnimationFrame(loop);
+    if(tw){let u=Math.min(1,(now-tw.t0)/900);u=1-Math.pow(1-u,3);controls.target.lerpVectors(tw.fromT,tw.toT,u);camera.position.lerpVectors(tw.fromP,tw.toP,u);if(u>=1)tw=null}
+    controls.update();
+    const ph=((now/1000)%rr)/rr,beat=ph<.12?Math.sin(ph/.12*Math.PI):0;heart.scale.setScalar(1-.07*beat);ring.material.opacity=.25+.25*beat;
+    renderer.render(scene,camera);
+    const W=Vw.clientWidth,H=Vw.clientHeight,cam=camera.position;
+    pins.forEach(q=>{v3.copy(q.p).project(camera);q.el.style.left=(v3.x*.5+.5)*W+'px';q.el.style.top=(-v3.y*.5+.5)*H+'px';
+      let vis=v3.z<1;if(q.n)vis=vis&&q.n.dot(cam.clone().sub(q.p))>0;else vis=vis&&xray;q.el.classList.toggle('hide',!vis)});
+    pulsing.forEach(q=>{q.el.querySelector('i').style.transform=`scale(${1+.25*beat})`});
+  };requestAnimationFrame(loop);
+  three={focus};
+}
+renderTab('c');detail(null);renderChain(-1);initThree();
+})();
+</script>
+</body>
+</html>
