@@ -177,7 +177,7 @@ function ageWord(n){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return 'лет
 
 /* ---------- вкладки ---------- */
 let selected=null;
-function findBtn(f){return `<button class="item link ${selected===f.key?'on':''}" data-go="${f.key}"><span class="num ${f.generated?'gen':''} ${f.pos?'':'free'}">${f.n}</span><span><b>${esc(f.title)}${f.side?` ${f.side==='L'?'слева':'справа'}`:''}</b><small>${esc(f.stage||'')}</small></span></button>`}
+function findBtn(f){return `<button class="item link ${selected===f.key?'on':''}" data-go="${f.key}"><span class="num ${f.generated?'gen':''} ${f.pos?'':'free'}">${f.n}</span><span><b>${esc(f.title)}${f.side?` ${f.side==='L'?'слева':f.side==='B'?'с обеих сторон':'справа'}`:''}</b><small>${esc(f.stage||'')}</small></span></button>`}
 function renderTab(t){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   const T=$('[data-tab]');let h='';
@@ -200,7 +200,7 @@ function detail(f){
   if(!f){Dt.innerHTML=`<div class="d-stage">как пользоваться</div><div class="d-title">Нажми точку на пациенте</div>
     <p style="color:var(--muted);font-size:14.5px">Каждая точка — находка с занятия: что нашли, как выявили, почему так, к чему ведёт. «Рентген» показывает органы внутри, «Контур нормы» — нормальное сердце поверх. Серые номера в списке «Осмотр» — находки без точки на теле.</p>
     ${D.conclusion?`<div class="sec"><h4>Главное</h4><p>${esc(D.conclusion)}</p></div>`:''}`;return}
-  Dt.innerHTML=`<div class="d-stage">${esc(f.stage||'')}</div><div class="d-title">${esc(f.title)}${f.side?` ${f.side==='L'?'слева':'справа'}`:''}</div>
+  Dt.innerHTML=`<div class="d-stage">${esc(f.stage||'')}</div><div class="d-title">${esc(f.title)}${f.side?` ${f.side==='L'?'слева':f.side==='B'?'с обеих сторон':'справа'}`:''}</div>
     ${f.generated?'<div class="warnbox">Сгенерировано автоматически, не проверено преподавателем.</div>':''}
     ${(f.media||[]).map(m=>`<figure class="media" style="margin:0"><img src="${esc(m.src)}" alt="${esc(m.alt||f.title)}" loading="lazy"></figure>`).join('')}
     <div class="sec"><h4>Что нашли</h4><p>${esc(f.detail||f.title)}</p></div>
@@ -280,7 +280,7 @@ const Snd=(function(){
 
 /* ======================= 3D ======================= */
 let three=null;const pinEls={};
-function highlight(keys){Object.entries(pinEls).forEach(([k,e])=>e.classList.toggle('on',keys.includes(k)))}
+function highlight(keys){Object.entries(pinEls).forEach(([k,e])=>e.classList.toggle('on',keys.includes(k.replace('#2',''))))}
 function select(key,focus){const f=F.find(x=>x.key===key);if(!f)return;selected=key;highlight([key]);detail(f);
   if($('.tabs button.on').dataset.t==='f')renderTab('f');if(three&&focus)three.focus(f)}
 
@@ -363,7 +363,7 @@ function initThree(){
   const lvh=has('heart','lvh');
   const heart=new THREE.Group();heart.position.set(.03,1.255,.02);org.add(heart);
   const lv=new THREE.Mesh(new THREE.SphereGeometry(.05,40,30),new THREE.MeshStandardMaterial({color:0xd03a46,roughness:.35,emissive:0x400a10,emissiveIntensity:.6}));
-  const k=lvh?1:.78;lv.scale.set(1.38*k,1.12*k,1.08*k);lv.rotation.z=-.55;lv.position.set(.012,-.004,-.004);heart.add(lv);
+  const dil=has('heart','dilation');const k=dil?1.15:lvh?1:.78;lv.scale.set(1.38*k,1.12*k*(dil?1.08:1),1.08*k);if(dil)lv.material.color.set(0xc0505b);lv.rotation.z=-.55;lv.position.set(.012,-.004,-.004);heart.add(lv);
   const rv=new THREE.Mesh(new THREE.SphereGeometry(.04,32,24),new THREE.MeshStandardMaterial({color:0xb5576a,roughness:.4}));rv.scale.set(1.15,.9,.8);rv.position.set(-.032,.004,.022);heart.add(rv);
   const arM=new THREE.MeshStandardMaterial({color:0xc8323c,roughness:.4}),paM=new THREE.MeshStandardMaterial({color:0x5a7fc0,roughness:.4});
   tube([[.015,1.29,0],[0,1.35,.005],[-.02,1.41,-.005],[-.05,1.415,-.03],[-.06,1.36,-.05],[-.058,1.2,-.055]],.013,arM);
@@ -372,10 +372,10 @@ function initThree(){
   ghost.scale.set(1.05,.95,.9);ghost.rotation.z=-.55;ghost.position.copy(heart.position).add(new THREE.Vector3(-.006,0,0));ghost.visible=false;scene.add(ghost);
   /* ---------- точки ---------- */
   const Pn=$('[data-pins]');
-  const pins=F.filter(f=>f.pos).map(f=>{const el=document.createElement('button');el.className='pin'+(f.generated?' gen':'');el.innerHTML=`<i>${f.n}</i><span>${esc(f.title)}</span>`;el.setAttribute('aria-label',f.title);Pn.appendChild(el);pinEls[f.key]=el;
-    let p,n;const pos=f.pos.slice();if(f.side==='L')pos[0]=-pos[0];
+  const pins=F.filter(f=>f.pos).flatMap(f=>(f.side==='B'?['R','L']:[f.side]).map((sd,j)=>{const el=document.createElement('button');el.className='pin'+(f.generated?' gen':'');el.innerHTML=`<i>${f.n}</i><span>${esc(f.title)}</span>`;el.setAttribute('aria-label',f.title);Pn.appendChild(el);pinEls[f.key+(j?'#2':'')]=el;
+    let p,n;const pos=f.pos.slice();if(sd==='L')pos[0]=-pos[0];
     if(pos[3]==='inside'){p=new THREE.Vector3(pos[0],pos[1],pos[2]);n=null}else{const q=surf(pos[0],pos[1],pos[2]);p=q.p;n=q.n}
-    el.onclick=()=>select(f.key,true);return {f,el,p,n}});
+    el.onclick=()=>select(f.key,true);return {f,el,p,n}}));
   let xray=false,cmp=false;
   const setX=v=>{xray=v;org.visible=v;mats.forEach(m=>{m.opacity=v?.2:1;m.depthWrite=!v});$('[data-x]').classList.toggle('on',v)};
   $('[data-x]').onclick=()=>setX(!xray);
